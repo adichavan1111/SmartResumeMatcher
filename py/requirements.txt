@@ -1,0 +1,9 @@
+streamlit
+pandas
+torch
+transformers
+sentence-transformers
+PyMuPDF
+python-docx
+docx2pdf
+pypandoc
