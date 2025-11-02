@@ -8,7 +8,6 @@ from docx import Document
 import fitz  # PyMuPDF for PDFs
 import tempfile
 import os
-import pythoncom
 from docx2pdf import convert
 import pypandoc  # fallback
 
@@ -54,16 +53,14 @@ def send_mail_mailtrap(to_email, subject, body):
             server.send_message(msg)
         st.success(f"✅ Email sent successfully to {to_email}")
     except Exception as e:
-        st.error(f"❌ Failed to send to {to_email}: {e}")
+        st.error(f"❌ Failed to send email: {e}")
 
 
 def safe_convert_docx_to_pdf(docx_filename, pdf_filename):
-    """Safely convert DOCX → PDF using docx2pdf with pythoncom, fallback to pypandoc."""
+    """Safely convert DOCX → PDF (Linux-safe)"""
     try:
-        pythoncom.CoInitialize()
         convert(docx_filename, pdf_filename)
-        pythoncom.CoUninitialize()
-        st.success(f"✅ Converted {os.path.basename(docx_filename)} → PDF using Microsoft Word")
+        st.success(f"✅ Converted {os.path.basename(docx_filename)} → PDF using docx2pdf")
         return pdf_filename
     except Exception as e:
         st.warning(f"⚠️ docx2pdf failed: {e}. Trying fallback (pypandoc)...")
@@ -98,7 +95,11 @@ def preprocess_text(text):
     """Clean and extract skill-related keywords from text."""
     text = re.sub(r'[^a-zA-Z0-9\s]', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
-    keywords = re.findall(r'\b(Java|Python|AWS|SQL|Testing|Machine Learning|AI|Automation|DevOps|Selenium|C\+\+|Cloud)\b', text, flags=re.IGNORECASE)
+    keywords = re.findall(
+        r'\b(Java|Python|AWS|SQL|Testing|Machine Learning|AI|Automation|DevOps|Selenium|C\+\+|Cloud)\b',
+        text,
+        flags=re.IGNORECASE,
+    )
     return " ".join(keywords) if keywords else text
 
 
@@ -107,7 +108,9 @@ def load_model():
     # ⚡ Better model for resume-job matching
     return SentenceTransformer("all-mpnet-base-v2")
 
+
 model = load_model()
+
 
 def get_embedding(text, model):
     return model.encode(text, convert_to_tensor=True, normalize_embeddings=True)
@@ -120,9 +123,16 @@ st.set_page_config(page_title="AI Resume Matcher", layout="wide")
 st.title("🤖 AI-Powered Resume Matcher")
 
 st.markdown("""
-### 💼 Business Description  
-This AI-powered Resume Matcher uses **advanced NLP (SentenceTransformer)** to go **beyond keyword search** — it understands context, skills, and job relevance to match resumes with job descriptions intelligently.  
-It employs **semantic similarity**, extracting meaningful insights from each document to help recruiters shortlist top candidates faster.
+### 💼 Business Summary
+Our **AI-Powered Resume Matcher** leverages state-of-the-art **NLP (Sentence Transformers)** and **semantic analysis** to intelligently match resumes with job descriptions — not just by keywords but by **contextual meaning**.
+
+This system empowers HR teams to:
+- 🚀 Instantly analyze and rank candidate resumes
+- 🧠 Identify best-fit profiles using AI-driven similarity scoring
+- 📊 Generate professional reports (CSV, PDF)
+- 📧 Integrate with email systems for smart candidate communication
+
+The result? Faster hiring decisions, improved accuracy, and **data-driven recruitment intelligence**.
 """)
 
 
@@ -150,10 +160,7 @@ if st.button("🚀 Match Resumes with Job Description"):
             if resume.name.endswith(".docx"):
                 st.write(f"📄 Converting {resume.name} → PDF...")
                 pdf_path, _ = convert_docx_to_pdf_bytes(resume)
-                if pdf_path:
-                    text = get_text_from_pdf(pdf_path)
-                else:
-                    text = ""
+                text = get_text_from_pdf(pdf_path) if pdf_path else ""
             elif resume.name.endswith(".pdf"):
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
                     temp_pdf.write(resume.read())
@@ -183,13 +190,9 @@ if st.button("🚀 Match Resumes with Job Description"):
                     "Email": "-"
                 })
 
-        # -------------------------------------------------
-        # 🔹 Prepare DataFrame
-        # -------------------------------------------------
         df = pd.DataFrame(results).sort_values(by="Match %", ascending=False)
         threshold = max(25, df["Match %"].mean() * 0.8)
         df["Status"] = df["Match %"].apply(lambda x: "✅ Matched" if x >= threshold else "❌ Not Matched")
-
         df.insert(0, "S.No", range(1, len(df) + 1))
         st.session_state["match_df"] = df
 
@@ -206,12 +209,10 @@ if st.button("🚀 Match Resumes with Job Description"):
         doc.add_heading("Resume Match Report", level=1)
         table = doc.add_table(rows=1, cols=len(df.columns))
 
-        # Header row
         hdr_cells = table.rows[0].cells
         for i, col_name in enumerate(df.columns):
             hdr_cells[i].text = col_name
 
-        # Data rows
         for _, row in df.iterrows():
             row_cells = table.add_row().cells
             for i, value in enumerate(row):
@@ -220,9 +221,6 @@ if st.button("🚀 Match Resumes with Job Description"):
         doc.save(docx_filename)
         safe_convert_docx_to_pdf(docx_filename, pdf_filename)
 
-        # -------------------------------------------------
-        # 🔹 Download Buttons
-        # -------------------------------------------------
         if os.path.exists(pdf_filename):
             with open(pdf_filename, "rb") as f:
                 st.download_button("⬇️ Download PDF Report", f, file_name=pdf_filename, mime="application/pdf")
@@ -234,18 +232,3 @@ if st.button("🚀 Match Resumes with Job Description"):
             file_name="resume_match_report.csv",
             mime="text/csv",
         )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

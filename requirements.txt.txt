@@ -1,0 +1,9 @@
+streamlit
+pandas
+sentence-transformers
+PyMuPDF
+python-docx
+docx2pdf
+pypandoc
+smtplib
+email
