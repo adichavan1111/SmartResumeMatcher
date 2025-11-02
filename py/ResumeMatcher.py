@@ -8,8 +8,8 @@ from docx import Document
 import fitz  # PyMuPDF for PDFs
 import tempfile
 import os
+import pypandoc
 from docx2pdf import convert
-import pypandoc  # fallback
 
 # -------------------------------------------------
 # 🔹 Helper Functions
