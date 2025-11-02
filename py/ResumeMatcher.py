@@ -58,22 +58,25 @@ def send_mail_mailtrap(to_email, subject, body):
 
 
 def safe_convert_docx_to_pdf(docx_filename, pdf_filename):
-    """Safely convert DOCX → PDF using docx2pdf with pythoncom, fallback to pypandoc."""
+    """Safely convert DOCX → PDF using docx2pdf on Windows, fallback to pypandoc elsewhere."""
     try:
-        pythoncom.CoInitialize()
-        convert(docx_filename, pdf_filename)
-        pythoncom.CoUninitialize()
-        st.success(f"✅ Converted {os.path.basename(docx_filename)} → PDF using Microsoft Word")
+        import platform
+        if platform.system() == "Windows":
+            import pythoncom
+            pythoncom.CoInitialize()
+            from docx2pdf import convert
+            convert(docx_filename, pdf_filename)
+            pythoncom.CoUninitialize()
+            st.success(f"✅ Converted {os.path.basename(docx_filename)} → PDF using Microsoft Word")
+        else:
+            # Non-Windows environment fallback
+            import pypandoc
+            pypandoc.convert_file(docx_filename, 'pdf', outputfile=pdf_filename, extra_args=['--standalone'])
+            st.success("✅ Converted using pypandoc (non-Windows fallback)")
         return pdf_filename
     except Exception as e:
-        st.warning(f"⚠️ docx2pdf failed: {e}. Trying fallback (pypandoc)...")
-        try:
-            pypandoc.convert_file(docx_filename, 'pdf', outputfile=pdf_filename, extra_args=['--standalone'])
-            st.success("✅ Converted using pypandoc fallback")
-            return pdf_filename
-        except Exception as e2:
-            st.error(f"❌ Both conversions failed: {e2}")
-            return None
+        st.error(f"❌ Conversion failed: {e}")
+        return None
 
 
 def convert_docx_to_pdf_bytes(uploaded_file):
