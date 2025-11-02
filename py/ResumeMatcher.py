@@ -57,25 +57,44 @@ def send_mail_mailtrap(to_email, subject, body):
 
 
 def safe_convert_docx_to_pdf(docx_filename, pdf_filename):
-    """Safely convert DOCX → PDF using docx2pdf on Windows, fallback to pypandoc elsewhere."""
+    """
+    Safely convert DOCX → PDF across all platforms.
+    🪟 Uses docx2pdf on Windows.
+    🐧 Uses pypandoc on Linux/macOS, auto-installs Pandoc if missing.
+    """
+    import platform
+
     try:
-        import platform
+        # 🪟 Windows conversion (requires Word)
         if platform.system() == "Windows":
-            import pythoncom
-            pythoncom.CoInitialize()
-            from docx2pdf import convert
-            convert(docx_filename, pdf_filename)
-            pythoncom.CoUninitialize()
-            st.success(f"✅ Converted {os.path.basename(docx_filename)} → PDF using Microsoft Word")
-        else:
-            # Non-Windows environment fallback
-            import pypandoc
-            pypandoc.convert_file(docx_filename, 'pdf', outputfile=pdf_filename, extra_args=['--standalone'])
-            st.success("✅ Converted using pypandoc (non-Windows fallback)")
+            try:
+                import pythoncom
+                from docx2pdf import convert
+                pythoncom.CoInitialize()
+                convert(docx_filename, pdf_filename)
+                pythoncom.CoUninitialize()
+                st.success(f"✅ Converted {os.path.basename(docx_filename)} → PDF using Microsoft Word")
+                return pdf_filename
+            except Exception as e:
+                st.warning(f"⚠️ Windows conversion failed: {e}. Trying fallback...")
+
+        # 🐧 macOS / Linux or fallback path
+        import pypandoc
+        try:
+            pypandoc.get_pandoc_version()
+        except OSError:
+            st.info("⬇️ Downloading missing Pandoc package...")
+            pypandoc.download_pandoc()
+
+        # Now try conversion
+        pypandoc.convert_file(docx_filename, 'pdf', outputfile=pdf_filename, extra_args=['--standalone'])
+        st.success("✅ Converted using pypandoc (cross-platform method)")
         return pdf_filename
+
     except Exception as e:
         st.error(f"❌ Conversion failed: {e}")
         return None
+
 
 
 def convert_docx_to_pdf_bytes(uploaded_file):
