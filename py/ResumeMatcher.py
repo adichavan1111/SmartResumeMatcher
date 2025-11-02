@@ -58,42 +58,51 @@ def send_mail_mailtrap(to_email, subject, body):
 
 def safe_convert_docx_to_pdf(docx_filename, pdf_filename):
     """
-    Safely convert DOCX → PDF across all platforms.
-    🪟 Uses docx2pdf on Windows.
-    🐧 Uses pypandoc on Linux/macOS, auto-installs Pandoc if missing.
+    Cross-platform DOCX → PDF converter.
+    🪟 Windows: uses docx2pdf (requires Word)
+    🐧 macOS/Linux: uses pypandoc + weasyprint (no LaTeX needed)
     """
     import platform
+    import os
+    import streamlit as st
+
+    system = platform.system()
 
     try:
-        # 🪟 Windows conversion (requires Word)
-        if platform.system() == "Windows":
+        if system == "Windows":
             try:
                 import pythoncom
                 from docx2pdf import convert
                 pythoncom.CoInitialize()
                 convert(docx_filename, pdf_filename)
                 pythoncom.CoUninitialize()
-                st.success(f"✅ Converted {os.path.basename(docx_filename)} → PDF using Microsoft Word")
+                st.success(f"✅ Converted {os.path.basename(docx_filename)} → PDF using Word")
                 return pdf_filename
             except Exception as e:
                 st.warning(f"⚠️ Windows conversion failed: {e}. Trying fallback...")
 
-        # 🐧 macOS / Linux or fallback path
+        # For Linux/macOS
         import pypandoc
         try:
             pypandoc.get_pandoc_version()
         except OSError:
-            st.info("⬇️ Downloading missing Pandoc package...")
+            st.info("⬇️ Downloading Pandoc...")
             pypandoc.download_pandoc()
 
-        # Now try conversion
-        pypandoc.convert_file(docx_filename, 'pdf', outputfile=pdf_filename, extra_args=['--standalone'])
-        st.success("✅ Converted using pypandoc (cross-platform method)")
+        # Try converting via weasyprint engine (no pdflatex needed)
+        pypandoc.convert_file(
+            docx_filename,
+            'pdf',
+            outputfile=pdf_filename,
+            extra_args=['--pdf-engine=weasyprint', '--standalone']
+        )
+        st.success(f"✅ Converted {os.path.basename(docx_filename)} → PDF using weasyprint engine")
         return pdf_filename
 
     except Exception as e:
         st.error(f"❌ Conversion failed: {e}")
         return None
+
 
 
 
